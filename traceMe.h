@@ -20,6 +20,9 @@ private:
 	static DWORD WINAPI traceMe(LPVOID myThread_);
 	static LONG CALLBACK excpHdlr(
 		PEXCEPTION_POINTERS excpInfo);
+	static int readInt(char*& text);
+	static bool testStr(const char* str, char*& text);
+	static void memoryDump(PCONTEXT context);
 };
 
 template <class T>
