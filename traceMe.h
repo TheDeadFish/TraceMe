@@ -2,16 +2,16 @@
 // DeadFish Shitware
 
 #include <windows.h>
-#include "void.h"
+#include "stdshit.h"
 
 class TraceMe
 {
 public:
 	static void Begin(PCONTEXT context);
-	static void Begin(Void breakPoint);
+	static void Begin(Void breakPoint = 0);
 	static void End(void);
-	static void DefCB(PVOID excpAddr, PCONTEXT context);
-	static void (*callBack)(
+	static PVOID DefCB(PVOID excpAddr, PCONTEXT context);
+	static PVOID (*callBack)(
 		PVOID excpAddr, PCONTEXT context);
 
 private:
@@ -19,6 +19,7 @@ private:
 	static PVOID Handler;
 	static volatile char inTrace;
 	static void* breakPoint;
+	static void* breakPointPrev;
 	
 	static DWORD WINAPI traceMe(LPVOID myThread_);
 	static LONG CALLBACK excpHdlr(

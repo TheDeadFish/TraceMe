@@ -1,17 +1,16 @@
 // TraceMe V1.30, 14/03/2014
 // DeadFish Shitware
 
-#define _WIN32_WINNT 0x0500
-#include "traceMe.h"
+#define _WIN32_WINNT 0x0501
+#include "traceme.h"
 #include <conio.h>
-#include <string.h>
-#include <ctype.h>
 #include <udis86.h>
 
 PVOID TraceMe::Handler = NULL;
 volatile char TraceMe::inTrace = false;
 void* TraceMe::breakPoint;
-void (*TraceMe::callBack)
+void* TraceMe::breakPointPrev;
+PVOID (*TraceMe::callBack)
 	(PVOID excpAddr, PCONTEXT context) = &TraceMe::DefCB;
 	
 void TraceMe::Begin(PCONTEXT context)
@@ -206,7 +205,7 @@ WAS_REGISTER:
 	}
 }
 
-void TraceMe::DefCB(PVOID excpAddr, PCONTEXT context)
+PVOID TraceMe::DefCB(PVOID excpAddr, PCONTEXT context)
 {
 	// Display dissasembly
 	ud_t ud_obj;
@@ -250,8 +249,12 @@ USER_INPUT:
 		TraceMe::memoryDump(context);
 		goto USER_INPUT;
 	
-	case 27:
+	case 13:
 		// Continue
+		return breakPoint;
+	
+	case 27:
+		// End trace
 		TraceMe::End();
 		break;
 	case 8:
@@ -260,6 +263,7 @@ USER_INPUT:
 			TraceMe::Begin((char*)(excpAddr) + ud_insn_len(&ud_obj));
 		break;
 	}
+	return NULL;
 }
 
 DWORD WINAPI TraceMe::traceMe(LPVOID myThread_)
@@ -326,9 +330,12 @@ LONG CALLBACK TraceMe::excpHdlr(PEXCEPTION_POINTERS excpInfo)
 	if((breakPoint == NULL)
 	||( breakPoint == excpInfo->ExceptionRecord->ExceptionAddress))
 	{
-		breakPoint = NULL;
-		callBack(excpInfo->ExceptionRecord->ExceptionAddress,
+		if(breakPoint)
+			breakPointPrev = breakPoint;
+		breakPoint = callBack(excpInfo->ExceptionRecord->ExceptionAddress,
 			excpInfo->ContextRecord);
+		if(breakPoint)
+			breakPointPrev = breakPoint;
 	}
 	if(inTrace != -1)
 		excpInfo->ContextRecord->EFlags |= 0x100;
