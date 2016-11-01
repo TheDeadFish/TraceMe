@@ -1,12 +1,14 @@
-// Minimal Win32 Tracing
+// TraceMe V1.30, 14/03/2014
+// DeadFish Shitware
+
 #include <windows.h>
+#include "void.h"
 
 class TraceMe
 {
 public:
-	template <class T>
-	static void Begin(T breakPoint);
-	static void Begin_(void* breakPoint);
+	static void Begin(PCONTEXT context);
+	static void Begin(Void breakPoint);
 	static void End(void);
 	static void DefCB(PVOID excpAddr, PCONTEXT context);
 	static void (*callBack)(
@@ -14,9 +16,10 @@ public:
 
 private:
 	TraceMe(){}
-	static bool inTrace;
-	static bool pastBreak;
+	static PVOID Handler;
+	static volatile char inTrace;
 	static void* breakPoint;
+	
 	static DWORD WINAPI traceMe(LPVOID myThread_);
 	static LONG CALLBACK excpHdlr(
 		PEXCEPTION_POINTERS excpInfo);
@@ -24,9 +27,3 @@ private:
 	static bool testStr(const char* str, char*& text);
 	static void memoryDump(PCONTEXT context);
 };
-
-template <class T>
-void TraceMe::Begin(T breakPoint)
-{
-	Begin_((void*)breakPoint);
-}
