@@ -1,14 +1,14 @@
-// TraceMe V1.30, 14/03/2014
+// TraceMe V1.41, 01/11/2016
 // DeadFish Shitware
 
 #include <windows.h>
-#include "stdshit.h"
 
 class TraceMe
 {
 public:
-	static void Begin(PCONTEXT context);
-	static void Begin(Void breakPoint = 0);
+	template <class T> static void Begin(T 
+		breakPoint) { Begin((void*)breakPoint); }
+	static void Begin(void* breakPoint = 0);
 	static void End(void);
 	static PVOID DefCB(PVOID excpAddr, PCONTEXT context);
 	static PVOID (*callBack)(
@@ -16,7 +16,7 @@ public:
 
 private:
 	TraceMe(){}
-	static PVOID Handler;
+	static volatile PVOID Handler;
 	static volatile char inTrace;
 	static void* breakPoint;
 	static void* breakPointPrev;

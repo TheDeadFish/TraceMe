@@ -1,4 +1,4 @@
-// TraceMe V1.30, 14/03/2014
+// TraceMe V1.41, 01/11/2016
 // DeadFish Shitware
 
 #define _WIN32_WINNT 0x0501
@@ -6,49 +6,25 @@
 #include <conio.h>
 #include <udis86.h>
 
-PVOID TraceMe::Handler = NULL;
+volatile PVOID TraceMe::Handler = NULL;
 volatile char TraceMe::inTrace = false;
 void* TraceMe::breakPoint;
 void* TraceMe::breakPointPrev;
 PVOID (*TraceMe::callBack)
 	(PVOID excpAddr, PCONTEXT context) = &TraceMe::DefCB;
-	
-void TraceMe::Begin(PCONTEXT context)
-{
-	breakPoint = __builtin_return_address(0);
-	inTrace = 0;
-	if(inTrace == 0)
-	{
-		if(Handler == NULL)
-			Handler = AddVectoredExceptionHandler(1, &excpHdlr);
-		if(Handler == NULL)
-		{
-			MessageBox(NULL, "TraceMe:Error", "TraceMe:Error", MB_OK);
-			ExitProcess(-1);
-		}
-		context->EFlags |= 0x100;
-	}
-}	
 
-void TraceMe::Begin(Void breakPoint)
+void TraceMe::Begin(void* breakPoint)
 {
-	// setup breakpoint
 	if(breakPoint == 0)
 		breakPoint = __builtin_return_address(0);
 	TraceMe::breakPoint = breakPoint;
-
-	// enable trace bit
-	inTrace = 0;
-	if(inTrace == 0)
-		traceMe(0);
+	TraceMe::traceMe(0);
 }
 
 void TraceMe::End(void)
 {
-	inTrace = -1;
-	if(Handler != NULL)
-		RemoveVectoredExceptionHandler(Handler);
-	Handler = NULL;
+	PVOID oldHandler = __sync_lock_test_and_set(&Handler, 0);
+	if(oldHandler) RemoveVectoredExceptionHandler(oldHandler);
 }
 
 int TraceMe::readInt(char*& text)
@@ -251,7 +227,7 @@ USER_INPUT:
 	
 	case 13:
 		// Continue
-		return breakPoint;
+		return breakPointPrev;
 	
 	case 27:
 		// End trace
@@ -272,10 +248,13 @@ DWORD WINAPI TraceMe::traceMe(LPVOID myThread_)
 	if(myThread == 0)
 	{
 		// Setup trace handler
-		if(Handler == NULL)
-			Handler = AddVectoredExceptionHandler(1, &excpHdlr);
+		if(Handler != NULL)
+			return 0;
+		Handler = AddVectoredExceptionHandler(1, &excpHdlr);
 		if(Handler == NULL)
 			goto FATAL_ERROR;
+		if(inTrace) 
+			return 0;
 	
 		// Open thine thread
 		myThread = OpenThread(THREAD_ALL_ACCESS, 0,
@@ -323,21 +302,18 @@ LONG CALLBACK TraceMe::excpHdlr(PEXCEPTION_POINTERS excpInfo)
 	if((excpInfo->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP)
 	||(excpInfo->ContextRecord->Dr6 & 15))
 		return EXCEPTION_CONTINUE_SEARCH;
-	if(inTrace == -1)
+	if(!Handler)
 		return EXCEPTION_CONTINUE_EXECUTION;
 
 	// Execute stepping handler
 	if((breakPoint == NULL)
 	||( breakPoint == excpInfo->ExceptionRecord->ExceptionAddress))
 	{
-		if(breakPoint)
-			breakPointPrev = breakPoint;
+		if(breakPoint) breakPointPrev = breakPoint;	inTrace = true;
 		breakPoint = callBack(excpInfo->ExceptionRecord->ExceptionAddress,
-			excpInfo->ContextRecord);
-		if(breakPoint)
-			breakPointPrev = breakPoint;
+			excpInfo->ContextRecord); inTrace = false;
 	}
-	if(inTrace != -1)
+	if(Handler)
 		excpInfo->ContextRecord->EFlags |= 0x100;
 	return EXCEPTION_CONTINUE_EXECUTION;
 }
