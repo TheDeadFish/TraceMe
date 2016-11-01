@@ -14,12 +14,10 @@ void (*TraceMe::callBack)
 void TraceMe::Begin_(void* breakPoint)
 {
 	// setup breakpoint
-	pastBreak = true;
-	if(breakPoint != 0)
-	{
-		pastBreak = false;
-		TraceMe::breakPoint = breakPoint;
-	}
+	if(breakPoint == 0)
+		breakPoint = __builtin_return_address(0);
+	TraceMe::breakPoint = breakPoint;
+	pastBreak = false;
 
 	// enable trace bit
 	if(!inTrace)
