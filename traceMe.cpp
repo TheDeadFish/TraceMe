@@ -2,7 +2,7 @@
 #include "traceMe.h"
 #include <conio.h>
 #include <udis86.h>
-#include "hwbreak.cpp"
+#include "hwbreak.h"
 
 PVOID TraceMe::Handler = NULL;
 
