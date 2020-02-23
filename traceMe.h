@@ -1,18 +1,22 @@
 // TraceMe V1.30, 14/03/2014
 // DeadFish Shitware
 
-#include <windows.h>
-//#include "void.h"
+#ifndef _TRACE_ME_
+#define _TRACE_ME_
+
 
 class TraceMe
 {
 public:
 	static void Init(void);
 	static void Trace(PCONTEXT context);
+
+	static void Begin(DWORD threadID, Void breakPoint);
 	static void Begin(PCONTEXT context, Void breakPoint);
 	static void Begin(Void breakPoint = 0);
 	
 	static void OnWrite(Void address);
+	static void OnRead(Void address);
 	
 	
 	static PVOID displayIns(PVOID excpAddr, PCONTEXT context);
@@ -30,3 +34,5 @@ private:
 	static bool testStr(const char* str, char*& text);
 	static void memoryDump(PCONTEXT context);
 };
+
+#endif

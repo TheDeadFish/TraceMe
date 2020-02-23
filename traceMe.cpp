@@ -31,8 +31,12 @@ void TraceMe::Begin(PCONTEXT context, Void breakPoint)
 {
 	Init();
 	setDbg_Break(context, 0, breakPoint);
-	printf("hello: %X\n", context->Dr0);
-	
+}
+
+void TraceMe::Begin(DWORD threadID, Void breakPoint)
+{
+	Init();
+	setDbg_Break(threadID, 0, breakPoint);
 }
 
 void TraceMe::OnWrite(Void address)
@@ -40,6 +44,13 @@ void TraceMe::OnWrite(Void address)
 	// setup breakpoint
 	Init();
 	setDbg_Write(1, address);	
+}
+
+void TraceMe::OnRead(Void address)
+{
+	// setup breakpoint
+	Init();
+	setDbg_Write(3, address);	
 }
 
 int TraceMe::readInt(char*& text)

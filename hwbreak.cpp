@@ -32,6 +32,16 @@ void selfCtxEdit(Delegate<bool,PCONTEXT> cb)
 	CloseHandle(myThread);
 }
 
+void threadCtxEdit(DWORD threadId, 
+	Delegate<bool,PCONTEXT> cb)
+{
+	HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, 0, threadId);
+	if(!hThread) fatalError("hwbreak1");
+	selfCtxEdit_ctx ctx = {hThread, cb};
+	selfCtxEdit_thread(&ctx);
+	CloseHandle(hThread);
+}
+
 void setDbgReg(PCONTEXT ctx,  int regNo, 
 	int size, int mode, void* addr)
 {
@@ -54,15 +64,22 @@ bool WINAPI setDbg_Break_cb(setDbg_Break_ctx* cbCtx, PCONTEXT ctx) {
 void setDbgReg(int regNo, int size, int mode, void* addr) {
 	setDbg_Break_ctx ctx = {regNo, size, mode, addr};
 	selfCtxEdit(MakeDelegate(&ctx, setDbg_Break_cb)); }
+void setDbgReg(DWORD threadId, int regNo, int size, int mode, void* addr) {
+	setDbg_Break_ctx ctx = {regNo, size, mode, addr};
+	threadCtxEdit(threadId, MakeDelegate(&ctx, setDbg_Break_cb)); }
 
 // helper function: setDbg_Break
 void WINAPI setDbg_Break(PCONTEXT ctx, int regNo, Void addr) {
 	setDbgReg(ctx, regNo, 1, 0, addr); }
 void WINAPI setDbg_Break(int regNo, Void addr) {	
 	setDbgReg(regNo, 1, 0, addr); }
+void WINAPI setDbg_Break(DWORD threadId, int regNo, Void addr) {	
+	setDbgReg(threadId, regNo, 1, 0, addr); }
 	
 // helper function: setDbg_Write
 void WINAPI setDbg_Write(PCONTEXT ctx, int regNo, Void addr) {
 	setDbgReg(ctx, regNo, 4, 0, addr); }
 void WINAPI setDbg_Write(int regNo, Void addr) {	
 	setDbgReg(regNo, 4, 1, addr); }
+void WINAPI setDbg_Write(DWORD threadId, int regNo, Void addr) {	
+	setDbgReg(threadId, regNo, 4, 1, addr); }
