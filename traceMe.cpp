@@ -1,55 +1,45 @@
-// TraceMe V1.30, 14/03/2014
-// DeadFish Shitware
-
-#define _WIN32_WINNT 0x0500
+#include <stdshit.h>
 #include "traceMe.h"
 #include <conio.h>
-#include <string.h>
-#include <ctype.h>
 #include <udis86.h>
+#include "hwbreak.cpp"
 
 PVOID TraceMe::Handler = NULL;
-volatile char TraceMe::inTrace = false;
-void* TraceMe::breakPoint;
-void (*TraceMe::callBack)
-	(PVOID excpAddr, PCONTEXT context) = &TraceMe::DefCB;
-	
-void TraceMe::Begin(PCONTEXT context)
+
+void TraceMe::Init(void)
 {
-	breakPoint = __builtin_return_address(0);
-	inTrace = 0;
-	if(inTrace == 0)
-	{
-		if(Handler == NULL)
-			Handler = AddVectoredExceptionHandler(1, &excpHdlr);
-		if(Handler == NULL)
-		{
-			MessageBox(NULL, "TraceMe:Error", "TraceMe:Error", MB_OK);
-			ExitProcess(-1);
-		}
-		context->EFlags |= 0x100;
-	}
-}	
+	if(Handler == NULL) Handler = 
+		AddVectoredExceptionHandler(1, &excpHdlr);
+}
 
 void TraceMe::Begin(Void breakPoint)
 {
 	// setup breakpoint
+	Init();
 	if(breakPoint == 0)
 		breakPoint = __builtin_return_address(0);
-	TraceMe::breakPoint = breakPoint;
-
-	// enable trace bit
-	inTrace = 0;
-	if(inTrace == 0)
-		traceMe(0);
+	setDbg_Break(0, breakPoint);
 }
 
-void TraceMe::End(void)
+void TraceMe::Trace(PCONTEXT context)
 {
-	inTrace = -1;
-	if(Handler != NULL)
-		RemoveVectoredExceptionHandler(Handler);
-	Handler = NULL;
+	Init();
+	context->EFlags |= 0x100;
+}
+
+void TraceMe::Begin(PCONTEXT context, Void breakPoint)
+{
+	Init();
+	setDbg_Break(context, 0, breakPoint);
+	printf("hello: %X\n", context->Dr0);
+	
+}
+
+void TraceMe::OnWrite(Void address)
+{
+	// setup breakpoint
+	Init();
+	setDbg_Write(1, address);	
 }
 
 int TraceMe::readInt(char*& text)
@@ -206,7 +196,7 @@ WAS_REGISTER:
 	}
 }
 
-void TraceMe::DefCB(PVOID excpAddr, PCONTEXT context)
+PVOID TraceMe::displayIns(PVOID excpAddr, PCONTEXT context)
 {
 	// Display dissasembly
 	ud_t ud_obj;
@@ -252,85 +242,32 @@ USER_INPUT:
 	
 	case 27:
 		// Continue
-		TraceMe::End();
-		break;
+		return (PVOID)-1;
+		
 	case 8:
 		// Step over
 		if(strncmp(asmText, "call", 4) == 0)
-			TraceMe::Begin((char*)(excpAddr) + ud_insn_len(&ud_obj));
+			return excpAddr + ud_insn_len(&ud_obj);
 		break;
 	}
-}
-
-DWORD WINAPI TraceMe::traceMe(LPVOID myThread_)
-{
-	HANDLE myThread = (HANDLE)myThread_;
-	if(myThread == 0)
-	{
-		// Setup trace handler
-		if(Handler == NULL)
-			Handler = AddVectoredExceptionHandler(1, &excpHdlr);
-		if(Handler == NULL)
-			goto FATAL_ERROR;
 	
-		// Open thine thread
-		myThread = OpenThread(THREAD_ALL_ACCESS, 0,
-			GetCurrentThreadId());
-		if(myThread == 0)
-			goto FATAL_ERROR;
-	
-		// Create the thread
-		HANDLE theThread = CreateThread(
-			0, 0, &traceMe, myThread, 0, 0);
-		if(theThread == 0)
-			goto FATAL_ERROR;
-		
-		// Let thread do its stuff
-		WaitForSingleObject(theThread, INFINITE);
-		CloseHandle(theThread);
-		CloseHandle(myThread);
-		return 0;
-	}
-	else
-	{
-		// set the trace bit
-		CONTEXT context;
-		context.ContextFlags = CONTEXT_CONTROL;
-		if(SuspendThread(myThread) < 0)
-			goto FATAL_ERROR;
-		if(GetThreadContext(myThread, &context) == 0)
-			goto FATAL_ERROR;
-		context.EFlags |= 0x100;
-		if(SetThreadContext(myThread, &context) == 0)
-			goto FATAL_ERROR;
-		if(ResumeThread(myThread) < 0)
-			goto FATAL_ERROR;	
-		return 0;
-	}
-	
-FATAL_ERROR:
-	MessageBox(NULL, "TraceMe:Error", "TraceMe:Error", MB_OK);
-	ExitProcess(-1);
+	return 0;
 }
 
 LONG CALLBACK TraceMe::excpHdlr(PEXCEPTION_POINTERS excpInfo)
 {
 	// Find a reason to return
-	if((excpInfo->ExceptionRecord->ExceptionCode != EXCEPTION_SINGLE_STEP)
-	||(excpInfo->ContextRecord->Dr6 & 15))
+	if(!is_one_of(excpInfo->ExceptionRecord->ExceptionCode,
+	EXCEPTION_BREAKPOINT, EXCEPTION_SINGLE_STEP))
 		return EXCEPTION_CONTINUE_SEARCH;
-	if(inTrace == -1)
-		return EXCEPTION_CONTINUE_EXECUTION;
 
-	// Execute stepping handler
-	if((breakPoint == NULL)
-	||( breakPoint == excpInfo->ExceptionRecord->ExceptionAddress))
-	{
-		breakPoint = NULL;
-		callBack(excpInfo->ExceptionRecord->ExceptionAddress,
-			excpInfo->ContextRecord);
-	}
-	if(inTrace != -1)
-		excpInfo->ContextRecord->EFlags |= 0x100;
+	// display the instruction
+	setDbg_Break(excpInfo->ContextRecord, 0, 0);
+	PVOID nextBP = displayIns(excpInfo->ExceptionRecord->
+		ExceptionAddress, excpInfo->ContextRecord);
+	if(nextBP == 0) {
+		excpInfo->ContextRecord->EFlags |= 0x100; }
+	ei(nextBP != (PVOID)-1) { setDbg_Break(
+		excpInfo->ContextRecord, 0, nextBP); }
 	return EXCEPTION_CONTINUE_EXECUTION;
 }

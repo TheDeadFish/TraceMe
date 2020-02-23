@@ -2,17 +2,20 @@
 // DeadFish Shitware
 
 #include <windows.h>
-#include "void.h"
+//#include "void.h"
 
 class TraceMe
 {
 public:
-	static void Begin(PCONTEXT context);
-	static void Begin(Void breakPoint);
-	static void End(void);
-	static void DefCB(PVOID excpAddr, PCONTEXT context);
-	static void (*callBack)(
-		PVOID excpAddr, PCONTEXT context);
+	static void Init(void);
+	static void Trace(PCONTEXT context);
+	static void Begin(PCONTEXT context, Void breakPoint);
+	static void Begin(Void breakPoint = 0);
+	
+	static void OnWrite(Void address);
+	
+	
+	static PVOID displayIns(PVOID excpAddr, PCONTEXT context);
 
 private:
 	TraceMe(){}
