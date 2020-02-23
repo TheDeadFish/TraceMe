@@ -1,3 +1,4 @@
+#include <stdshit.h>
 
 struct selfCtxEdit_ctx {
 	HANDLE myThread; 

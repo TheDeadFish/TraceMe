@@ -217,7 +217,7 @@ PVOID TraceMe::displayIns(PVOID excpAddr, PCONTEXT context)
 	ud_set_input_buffer(&ud_obj, (uint8_t*)excpAddr, 32);
 	ud_set_pc(&ud_obj, (uint64_t)excpAddr);
 	ud_disassemble(&ud_obj);
-	char* asmText = ud_insn_asm(&ud_obj);
+	const char* asmText = ud_insn_asm(&ud_obj);
 	_cprintf("%8X: %s\n", excpAddr, asmText);
 	
 USER_INPUT:
